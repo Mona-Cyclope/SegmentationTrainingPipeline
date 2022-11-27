@@ -41,18 +41,21 @@ def get_coordinates(all_points_x, all_points_y):
     np.asarray(coordinates).astype(np.float32)
     return coordinates
 
-def labeler_image_mask_load_fun(image_mask_path):
-    image_path, mask_path = image_mask_path
-    image = image_load_fun(image_path)
-    segmentations = mask_load_fun(mask_path)
-    h,w,c = image.shape
-    mask = np.zeros([h,w], dtype=np.uint8)
-    for cls_idx,segmentation in enumerate(segmentations):
-        cls = cls_idx + 1
-        allX, allY = segmentation['allX'], segmentation['allY']
-        coordinates = get_coordinates(allX, allY)
-        get_mask_from_coordinates(coordinates, [h,w], value=cls, mask=mask)
-    return image, mask
+def labeler_image_mask_load_fun(maks_label_dict=None):
+    def f(image_mask_path):
+        image_path, mask_path = image_mask_path
+        image = image_load_fun(image_path)
+        segmentations = mask_load_fun(mask_path)
+        h,w,c = image.shape
+        mask = np.zeros([h,w], dtype=np.uint8)
+        for cls_idx,segmentation in enumerate(segmentations):
+            labelValue = segmentation['labelValue']
+            allX, allY = segmentation['allX'], segmentation['allY']
+            coordinates = get_coordinates(allX, allY)
+            cls_v = maks_label_dict[labelValue] if maks_label_dict else cls_idx + 1
+            get_mask_from_coordinates(coordinates, [h,w], value=cls_v, mask=mask)
+        return image, mask
+    return f
 
 def labeler_download_lots(json_file_paths, update_if_exists=True, only_labels=False):
     dump_paths = [ labeler_download_lot(json_file_path, update_if_exists=update_if_exists, only_labels=only_labels) for json_file_path in json_file_paths ]

@@ -33,7 +33,7 @@ class BufferedDataloader(Dataset):
 class ImageMaskDataloader(Dataset):
     
     def __init__(self, image_folder, mask_folder, image_prefix="", mask_prefix="", image_suffix=".png", mask_suffix=".png",
-                 image_mask_load_fun=image_mask_load_fun, image_mask_load_transform=None, image_mask_transform=None):
+                 image_mask_load_fun=image_mask_load_fun(), image_mask_load_transform=None, image_mask_transform=None):
         
         image_names = set(filter_file_names(image_folder, prefix=image_prefix, suffix=image_suffix))
         mask_names = set(filter_file_names(mask_folder, prefix=mask_prefix, suffix=mask_suffix))
