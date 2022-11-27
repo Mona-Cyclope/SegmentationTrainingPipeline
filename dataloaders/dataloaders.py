@@ -43,7 +43,7 @@ class ImageMaskDataloader(Dataset):
         valid_mask_file_paths = [ os.path.join(mask_folder, f) for f in valid_mask_file_names ]
         
         valid_image_mask_paths = list(zip(valid_image_file_paths, valid_mask_file_paths))
-        self.___buffer_data_loader = BufferedDataloader(valid_image_mask_paths, load_transform=image_mask_load_fun)
+        self.___buffer_data_loader = BufferedDataloader(valid_image_mask_paths, image_mask_load_fun)
         self.transform = image_mask_transform
         
     def __len__(self):
