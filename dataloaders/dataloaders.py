@@ -17,13 +17,10 @@ def filter_file_names(folder, prefix, suffix):
 
 class BufferedDataloader(Dataset):
     
-    def __init__(self, paths_to_files, read_file_fun, load_transform=None):
+    def __init__(self, paths_to_files, read_file_fun):
         self.paths_to_files= paths_to_files
         self.read_file_fun = read_file_fun
-        if load_transform:
-            self.___buffer_data_loader = [ load_transform(read_file_fun(path_to_file)) for path_to_file in paths_to_files ]
-        else:
-            self.___buffer_data_loader = [ read_file_fun(path_to_file) for path_to_file in paths_to_files ]
+        self.___buffer_data_loader = [ read_file_fun(path_to_file) for path_to_file in paths_to_files ]
         
     def __len__(self): return len(self.___buffer_data_loader)
     
@@ -33,7 +30,7 @@ class BufferedDataloader(Dataset):
 class ImageMaskDataloader(Dataset):
     
     def __init__(self, image_folder, mask_folder, image_prefix="", mask_prefix="", image_suffix=".png", mask_suffix=".png",
-                 image_mask_load_fun=image_mask_load_fun(), image_mask_load_transform=None, image_mask_transform=None):
+                 image_mask_load_fun=image_mask_load_fun, image_mask_transform=None):
         
         image_names = set(filter_file_names(image_folder, prefix=image_prefix, suffix=image_suffix))
         mask_names = set(filter_file_names(mask_folder, prefix=mask_prefix, suffix=mask_suffix))
@@ -46,7 +43,7 @@ class ImageMaskDataloader(Dataset):
         valid_mask_file_paths = [ os.path.join(mask_folder, f) for f in valid_mask_file_names ]
         
         valid_image_mask_paths = list(zip(valid_image_file_paths, valid_mask_file_paths))
-        self.___buffer_data_loader = BufferedDataloader(valid_image_mask_paths, image_mask_load_fun, load_transform=image_mask_load_transform)
+        self.___buffer_data_loader = BufferedDataloader(valid_image_mask_paths, load_transform=image_mask_load_fun)
         self.transform = image_mask_transform
         
     def __len__(self):
