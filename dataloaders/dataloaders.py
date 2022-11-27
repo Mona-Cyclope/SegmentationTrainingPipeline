@@ -1,65 +1,58 @@
 import os
 from torch.utils.data import Dataset
+from .io import image_load_fun, mask_load_fun
 
-def get_name_of_file(path_to_file, suffix="", ext=""):
-    filename = os.path.basename(path_to_file)[len(suffix)::-len(ext)]
+def image_mask_load_fun(image_mask_path):
+    image_path, mask_path = image_mask_path
+    return image_load_fun(image_path), mask_load_fun(mask_path)
+
+def get_name_of_file(path_to_file, prefix="", suffix=""):
+    filename = os.path.basename(path_to_file)[len(prefix):-len(suffix)]
     return filename
     
-def filter_file_names(folder, suffix, ext):
-    image_names = [ get_name_of_file(f, suffix=suffix, ext=ext ) 
-                    for f in os.listdir(folder) if suffix in f and ext in f ]
+def filter_file_names(folder, prefix, suffix):
+    image_names = [ get_name_of_file(f, prefix=prefix, suffix=suffix ) 
+                    for f in os.listdir(folder) if prefix in f and suffix in f ]
     return image_names
-    
+
 class BufferedDataloader(Dataset):
     
-    def __init__(self, paths_to_files, read_file_fun):
+    def __init__(self, paths_to_files, read_file_fun, load_transform=None):
         self.paths_to_files= paths_to_files
         self.read_file_fun = read_file_fun
-        self.buffer = [ read_file_fun(path_to_file) for path_to_file in paths_to_files ]
+        if load_transform:
+            self.___buffer_data_loader = [ load_transform(read_file_fun(path_to_file)) for path_to_file in paths_to_files ]
+        else:
+            self.___buffer_data_loader = [ read_file_fun(path_to_file) for path_to_file in paths_to_files ]
         
-    def __len__(self): return len(self.buffer)
+    def __len__(self): return len(self.___buffer_data_loader)
     
     def __getitem__(self, idx):
-        return self.buffer[idx]
-        
-class SegmentationDataloader(Dataset):
+        return self.___buffer_data_loader[idx]
+
+class ImageMaskDataloader(Dataset):
     
-    def __init__(self, image_folder, mask_folder, read_image_fun, read_mask_fun, 
-                 image_ext, mask_ext, image_suffix, mask_suffix, image_mask_transform=None):
-        # check naming consistency
-        image_names = set(filter_file_names(image_folder, ext=image_ext, suffix=image_suffix))
-        mask_names = set(filter_file_names(mask_folder, ext=mask_ext, suffix=mask_suffix))
-        valid_file_names = list(image_names.intersection(mask_names))
+    def __init__(self, image_folder, mask_folder, image_prefix="", mask_prefix="", image_suffix=".png", mask_suffix=".png",
+                 image_mask_load_fun=image_mask_load_fun, image_mask_load_transform=None, image_mask_transform=None):
         
-        valid_image_file_names = [ image_suffix+f+image_ext for f in valid_file_names ]
-        valid_mask_file_names = [ mask_suffix+f+mask_ext for f in valid_file_names ]
+        image_names = set(filter_file_names(image_folder, prefix=image_prefix, suffix=image_suffix))
+        mask_names = set(filter_file_names(mask_folder, prefix=mask_prefix, suffix=mask_suffix))
+        valid_file_names = list(image_names.intersection(mask_names))   
+
+        valid_image_file_names = [ image_prefix+f+image_suffix for f in valid_file_names ]
+        valid_mask_file_names = [ mask_prefix+f+mask_suffix for f in valid_file_names ]
         
         valid_image_file_paths = [ os.path.join(image_folder, f) for f in valid_image_file_names ]
         valid_mask_file_paths = [ os.path.join(mask_folder, f) for f in valid_mask_file_names ]
         
-        buffered_image_dataloader = BufferedDataloader(valid_image_file_paths, read_image_fun)
-        buffered_mask_dataloader = BufferedDataloader(valid_mask_file_paths, read_mask_fun)
-        
-        self.buffer_image = buffered_image_dataloader
-        self.buffer_mask = buffered_mask_dataloader
-        
-        assert len(self.buffer_image) == len(self.buffer_mask), "inconsinstent dataset"
-        
+        valid_image_mask_paths = list(zip(valid_image_file_paths, valid_mask_file_paths))
+        self.___buffer_data_loader = BufferedDataloader(valid_image_mask_paths, image_mask_load_fun, load_transform=image_mask_load_transform)
         self.transform = image_mask_transform
         
     def __len__(self):
-        return len(self.buffer_image)
-        
-    def __getitem__(self, idx):
-        image, mask = self.buffer_image[idx], self.buffer_mask[idx]
-        if self.transform: 
-            transformed = self.transform(image=image, mask=mask)
-            image = transformed["image"]
-            mask = transformed["mask"]
-        return image, mask
-        
-        
-        
-        
-                
-        
+        return len(self.___buffer_data_loader)
+    
+    def __getitem__(self, index):
+        if self.transform:
+            return self.transform(self.___buffer_data_loader[index])
+        return self.___buffer_data_loader[index]
