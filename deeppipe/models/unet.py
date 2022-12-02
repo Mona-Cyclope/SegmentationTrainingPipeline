@@ -1,8 +1,9 @@
-""" Parts of the U-Net model """
-
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import optim
+import pytorch_lightning as pl
 
 
 class DoubleConv(nn.Module):
@@ -77,30 +78,67 @@ class OutConv(nn.Module):
         return self.conv(x)
 
 class UNet(nn.Module):
-    def __init__(self, n_channels, n_classes, root_features=64, levels=4, bilinear=False):
+    def __init__(self, n_channels, n_classes, rootchan=32, bilinear=False):
         super(UNet, self).__init__()
         self.n_channels = n_channels
         self.n_classes = n_classes
         self.bilinear = bilinear
 
-        self.inc = DoubleConv(n_channels, root_features)
-        downs = []
-        for i in range(levels):
-            downs += [ Down(root_features*2**i, root_features*2**(i+1)) ]
-            
-        ups = []
+        self.inc = DoubleConv(n_channels, rootchan*2**(0))
+        self.down1 = Down(rootchan*2**(0), rootchan*2**(1))
+        self.down2 = Down(rootchan*2**(1), rootchan*2**(2))
+        self.down3 = Down(rootchan*2**(2), rootchan*2**(3))
         factor = 2 if bilinear else 1
-        for i in range(levels,0,-1):
-            ups += [ Up(root_features*2**i, root_features*2**(i-1) // factor, bilinear) ]
-        self.outc = OutConv(root_features, n_classes)
+        self.down4 = Down(rootchan*2**(3), rootchan*2**(4) // factor)
+        self.up1 = Up(rootchan*2**(4), rootchan*2**(3) // factor, bilinear)
+        self.up2 = Up(rootchan*2**(3), rootchan*2**(2) // factor, bilinear)
+        self.up3 = Up(rootchan*2**(2), rootchan*2**(1) // factor, bilinear)
+        self.up4 = Up(rootchan*2**(1), rootchan*2**(0), bilinear)
+        self.outc = OutConv(rootchan*2**(0), n_classes)
 
     def forward(self, x):
-        x = self.inc(x)
-        xs = []
-        for down in self.downs:
-            xs += [x]
-            x = down(x)
-        for up, xr in zip(self.ups, xs[::-1]):
-            x = up(x, xr)
+        x1 = self.inc(x)
+        x2 = self.down1(x1)
+        x3 = self.down2(x2)
+        x4 = self.down3(x3)
+        x5 = self.down4(x4)
+        x = self.up1(x5, x4)
+        x = self.up2(x, x3)
+        x = self.up3(x, x2)
+        x = self.up4(x, x1)
         logits = self.outc(x)
         return logits
+
+class UnetTrainer(pl.LightningModule):
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+        self.model = UNet(*args, **kwargs).cuda()
+        self.n_classes = self.model.n_classes 
+
+    def training_step(self, batch, batch_nb):
+        x, y = batch
+        y_hat = self.model(x)
+        loss = F.cross_entropy(y_hat, y) if self.n_classes > 1 else \
+            F.binary_cross_entropy_with_logits(y_hat, y)
+        return {'loss': loss }
+    
+    def training_epoch_end(self, outputs):
+        avg_loss = torch.stack([x['loss'] for x in outputs]).mean()
+        self.log('loss', {'train_loss':avg_loss})
+
+    def validation_step(self, batch, batch_nb):
+        x, y = batch
+        y_hat = self.model(x)
+        loss = F.cross_entropy(y_hat, y) if self.n_classes > 1 else \
+            F.binary_cross_entropy_with_logits(y_hat, y)
+        return {'val_loss': loss}
+
+    def validation_epoch_end(self, outputs):
+        avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
+        self.log('loss', {'valid_loss':avg_loss})
+        
+        return {'avg_val_loss': avg_loss}
+
+    def configure_optimizers(self):
+        optimizer = optim.Adam(self.parameters(), lr=1e-3)
+        return optimizer

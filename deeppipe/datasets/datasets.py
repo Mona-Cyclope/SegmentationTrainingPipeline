@@ -1,6 +1,7 @@
 import os
 from torch.utils.data import Dataset
-from .io import image_load_fun, mask_load_fun
+from tqdm import tqdm
+from deeppipe.datasets.io import image_load_fun, mask_load_fun
 
 def image_mask_load_fun(image_mask_path):
     image_path, mask_path = image_mask_path
@@ -20,14 +21,14 @@ class BufferedDataloader(Dataset):
     def __init__(self, paths_to_files, read_file_fun):
         self.paths_to_files= paths_to_files
         self.read_file_fun = read_file_fun
-        self.___buffer_data_loader = [ read_file_fun(path_to_file) for path_to_file in paths_to_files ]
+        self.___buffer_data_loader = [ read_file_fun(path_to_file) for path_to_file in tqdm(paths_to_files, desc="BufferedDataloader") ]
         
     def __len__(self): return len(self.___buffer_data_loader)
     
     def __getitem__(self, idx):
         return self.___buffer_data_loader[idx]
 
-class ImageMaskDataloader(Dataset):
+class ImageMaskDataset(Dataset):
     
     def __init__(self, image_folder, mask_folder, image_prefix="", mask_prefix="", image_suffix=".png", mask_suffix=".png",
                  image_mask_load_fun=image_mask_load_fun, image_mask_transform=None):
@@ -50,6 +51,7 @@ class ImageMaskDataloader(Dataset):
         return len(self.___buffer_data_loader)
     
     def __getitem__(self, index):
+        image, mask = self.___buffer_data_loader[index]
         if self.transform:
-            return self.transform(self.___buffer_data_loader[index])
-        return self.___buffer_data_loader[index]
+            return self.transform(image=image, mask=mask)
+        return image, mask

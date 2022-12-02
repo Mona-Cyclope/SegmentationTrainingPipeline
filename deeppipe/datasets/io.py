@@ -5,7 +5,7 @@ import os
 import wget
 from tqdm import tqdm
 
-from dataloaders import LOG
+from deeppipe import LOG
 
 def load_json(path2file):
     with open(path2file, 'r', encoding='utf-8') as f:
@@ -41,19 +41,32 @@ def get_coordinates(all_points_x, all_points_y):
     np.asarray(coordinates).astype(np.float32)
     return coordinates
 
-def labeler_image_mask_load_fun(maks_label_dict=None):
+def labeler_image_mask_load(maks_label_dict=None):
     def f(image_mask_path):
         image_path, mask_path = image_mask_path
         image = image_load_fun(image_path)
         segmentations = mask_load_fun(mask_path)
         h,w,c = image.shape
         mask = np.zeros([h,w], dtype=np.uint8)
-        for cls_idx,segmentation in enumerate(segmentations):
+        for cls_idx, segmentation in enumerate(segmentations):
             labelValue = segmentation['labelValue']
             allX, allY = segmentation['allX'], segmentation['allY']
-            coordinates = get_coordinates(allX, allY)
-            cls_v = maks_label_dict[labelValue] if maks_label_dict else cls_idx + 1
-            get_mask_from_coordinates(coordinates, [h,w], value=cls_v, mask=mask)
+            if len(allX) > 0:
+                coordinates = get_coordinates(allX, allY)
+                if maks_label_dict is not None and labelValue not in maks_label_dict:
+                    LOG.warning("found annotation label not in label dictionary: {}".format(labelValue))
+                elif maks_label_dict is not None and labelValue in maks_label_dict:
+                    get_mask_from_coordinates(coordinates, [h,w], value=maks_label_dict.get(labelValue), mask=mask)
+                elif maks_label_dict is None:
+                    get_mask_from_coordinates(coordinates, [h,w], value=cls_idx + 1, mask=mask)
+        return image, mask
+    return f
+
+def rescale_labeler_image_mask_load(dim, image_mask_load_fun=labeler_image_mask_load(maks_label_dict={})):
+    def f(image_mask_path):
+        image, mask = image_mask_load_fun(image_mask_path)
+        image = cv2.resize(image, tuple(dim), interpolation=cv2.INTER_CUBIC)
+        mask = cv2.resize(mask, tuple(dim), interpolation=cv2.INTER_NEAREST)
         return image, mask
     return f
 
