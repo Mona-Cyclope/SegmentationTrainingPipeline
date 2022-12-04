@@ -1,6 +1,8 @@
 # data
 data/
 lightning_logs/
+log/
+logs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

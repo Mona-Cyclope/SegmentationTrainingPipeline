@@ -5,6 +5,7 @@ from torchvision import transforms
 from pytorch_lightning import Trainer
 import numpy as np
 import os
+from pytorch_lightning.loggers import TensorBoardLogger
 
 from deeppipe.datasets.augmentations import ApplyAlbumination, compose, transposeImage, convertImage2float, convertMask2long
 from deeppipe.datasets.io import labeler_image_mask_load, rescale_labeler_image_mask_load, labeler_download_lot
@@ -26,6 +27,7 @@ max_epochs = segmentation.max_epochs
 devices = segmentation.devices
 accelerator = segmentation.accelerator
 log_every_n_steps = segmentation.log_every_n_steps
+check_val_every_n_epoch = segmentation.check_val_every_n_epoch
 train_batch_size = segmentation.train_batch_size
 valid_batch_size = segmentation.valid_batch_size
 albumentation = segmentation.albumentation
@@ -68,6 +70,10 @@ valid_dataset = ConcatDataset(valid_batches)
 train_dataloader = DataLoader(train_dataset, batch_size=train_batch_size, shuffle=True)
 valid_dataloader = DataLoader(valid_dataset, batch_size=valid_batch_size, shuffle=False)
 
+
 # create model and trainer
-trainer = Trainer( max_epochs=max_epochs, accelerator=accelerator, devices=devices, logger=True, log_every_n_steps=log_every_n_steps)
+logging_folder = segmentation.logging_folder
+model_name = segmentation.model_name
+logger = TensorBoardLogger(logging_folder, name=model_name)
+trainer = Trainer( max_epochs=max_epochs, accelerator=accelerator, devices=devices, logger=logger, check_val_every_n_epoch=check_val_every_n_epoch, log_every_n_steps=log_every_n_steps)
 trainer.fit(model=model, train_dataloaders=train_dataloader, val_dataloaders=valid_dataloader)

@@ -1,7 +1,9 @@
 import os
+import numpy as np
 from torch.utils.data import Dataset
 from tqdm import tqdm
 from deeppipe.datasets.io import image_load_fun, mask_load_fun
+from deeppipe import LOG
 
 def image_mask_load_fun(image_mask_path):
     image_path, mask_path = image_mask_path
@@ -55,3 +57,44 @@ class ImageMaskDataset(Dataset):
         if self.transform:
             return self.transform(image=image, mask=mask)
         return image, mask
+    
+class KittiDataset(ImageMaskDataset):
+    
+    @staticmethod
+    def unzip_kitti(zip_path, zip_ext):
+        ex_dir = os.path.join(zip_ext, 'kitti')
+        os.makedirs(ex_dir, exist_ok=True)
+        os.system("unzip {} -d {} -n".format(zip_path, ex_dir))
+        gt_path = os.path.join(ex_dir, "training", "gt_image_2")
+        for fname in os.listdir(gt_path):
+            try:
+                code,clss,idx = fname.split('_')
+                idx = idx.split('.png')[0]
+                if clss == 'road':
+                    refname = fname.replace('_road_','_')
+                    os.rename(os.path.join(gt_path, fname), os.path.join(gt_path, refname))
+                    
+            except Exception as e:
+                LOG.warning(e)
+                LOG.warning("issue with {}, it might be already be renamed...".format(fname))
+        return ex_dir
+    
+    @staticmethod
+    def kitti_image_mask_load_fun(image_mask_path):
+        image_path, mask_path = image_mask_path
+        x,y = image_load_fun(image_path), image_load_fun(mask_path)
+        # convert to binary mask
+        y = (y.mean(axis=-1)>100).astype(np.uint8)
+        return x, y
+    
+    def __init__(self, image_folder=None, mask_folder=None, zip_path=None, zip_ext=None, **dataset_kwargs):
+        if image_folder is None and mask_folder is None:
+            assert zip_path is not None and zip_ext is not None, "provide path to zip file"
+            ex_dir = KittiDataset.unzip_kitti(zip_path, zip_ext)
+            image_folder = os.path.join(ex_dir, "training", "image_2")
+            mask_folder = os.path.join(ex_dir, "training", "gt_image_2")
+            self.video_test_folder = os.path.join(ex_dir, "testing")
+        self.image_folder, self.mask_folder = image_folder, mask_folder
+        super().__init__(image_folder=image_folder, mask_folder=mask_folder, 
+                         image_mask_load_fun=KittiDataset.kitti_image_mask_load_fun, **dataset_kwargs)
+    
