@@ -62,6 +62,14 @@ def labeler_image_mask_load(maks_label_dict=None):
         return image, mask
     return f
 
+def rescale_image_mask_load(dim, image_mask_load_fun):
+    def f(image_mask_path):
+        image, mask = image_mask_load_fun(image_mask_path)
+        image = cv2.resize(image, tuple(dim), interpolation=cv2.INTER_CUBIC)
+        mask = cv2.resize(mask, tuple(dim), interpolation=cv2.INTER_NEAREST)
+        return image, mask
+    return f
+
 def rescale_labeler_image_mask_load(dim, image_mask_load_fun=labeler_image_mask_load(maks_label_dict={})):
     def f(image_mask_path):
         image, mask = image_mask_load_fun(image_mask_path)

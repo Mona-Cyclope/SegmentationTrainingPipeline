@@ -2,8 +2,9 @@ import os
 import numpy as np
 from torch.utils.data import Dataset
 from tqdm import tqdm
-from deeppipe.datasets.io import image_load_fun, mask_load_fun
+from deeppipe.datasets.io import image_load_fun, mask_load_fun, rescale_image_mask_load
 from deeppipe import LOG
+import cv2
 
 def image_mask_load_fun(image_mask_path):
     image_path, mask_path = image_mask_path
@@ -82,10 +83,13 @@ class KittiDataset(ImageMaskDataset):
     @staticmethod
     def kitti_image_mask_load_fun(image_mask_path):
         image_path, mask_path = image_mask_path
-        x,y = image_load_fun(image_path), image_load_fun(mask_path)
+        image,mask = image_load_fun(image_path), image_load_fun(mask_path)
+        dim = 1200,350
+        image = cv2.resize(image, tuple(dim), interpolation=cv2.INTER_CUBIC)
+        mask = cv2.resize(mask, tuple(dim), interpolation=cv2.INTER_NEAREST)
         # convert to binary mask
-        y = (y.mean(axis=-1)>100).astype(np.uint8)
-        return x, y
+        bmask = (mask.mean(axis=-1)>100).astype(np.uint8)
+        return image, bmask
     
     def __init__(self, image_folder=None, mask_folder=None, zip_path=None, zip_ext=None, **dataset_kwargs):
         if image_folder is None and mask_folder is None:

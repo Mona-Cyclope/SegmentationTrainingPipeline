@@ -6,6 +6,7 @@ from torch import optim
 import pytorch_lightning as pl
 from deeppipe.viz.segmentation import show_images_masks, batch_tensor_to_image_list, batch_tensor_to_mask_list
 import matplotlib as plt
+import einops
 
 class DoubleConv(nn.Module):
     """(convolution => [BN] => ReLU) * 2"""
@@ -53,7 +54,7 @@ class Up(nn.Module):
             self.conv = DoubleConv(in_channels, out_channels, in_channels // 2)
         else:
             self.up = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
-            self.conv = DoubleConv(in_channels, out_channels)
+            self.conv = DoubleConv(in_channels // 2, out_channels)
 
     def forward(self, x1, x2):
         x1 = self.up(x1)
@@ -66,7 +67,7 @@ class Up(nn.Module):
         # if you have padding issues, see
         # https://github.com/HaiyongJiang/U-Net-Pytorch-Unstructured-Buggy/commit/0e854509c2cea854e247a9c615f175f76fbb2e3a
         # https://github.com/xiaopeng-liao/Pytorch-UNet/commit/8ebac70e633bac59fc22bb5195e513d5832fb3bd
-        x = torch.cat([x2, x1], dim=1)
+        x = x2 + x1
         return self.conv(x)
 
 
@@ -77,18 +78,30 @@ class OutConv(nn.Module):
 
     def forward(self, x):
         return self.conv(x)
-
-class UNet(nn.Module):
-    def __init__(self, n_channels, n_classes, rootchan=32, bilinear=False):
-        super(UNet, self).__init__()
-        self.n_channels = n_channels
-        self.n_classes = n_classes
-        self.bilinear = bilinear
-
+    
+class Encoder(nn.Module):
+    
+    def __init__(self, n_channels, n_classes, rootchan=16, bilinear=False):
+        super().__init__()
         self.inc = DoubleConv(n_channels, rootchan*2**(0))
         self.down1 = Down(rootchan*2**(0), rootchan*2**(1))
         self.down2 = Down(rootchan*2**(1), rootchan*2**(2))
         self.down3 = Down(rootchan*2**(2), rootchan*2**(3))
+        factor = 2 if bilinear else 1
+        self.down4 = Down(rootchan*2**(3), rootchan*2**(4) // factor)
+        
+    def forward(self, x):
+        x1 = self.inc(x)
+        x2 = self.down1(x1)
+        x3 = self.down2(x2)
+        x4 = self.down3(x3)
+        x5 = self.down4(x4)
+        return x1,x2,x3,x4,x5
+    
+class Decoder(nn.Module):
+    
+    def __init__(self, n_channels, n_classes, rootchan=16, bilinear=False):
+        super().__init__()
         factor = 2 if bilinear else 1
         self.down4 = Down(rootchan*2**(3), rootchan*2**(4) // factor)
         self.up1 = Up(rootchan*2**(4), rootchan*2**(3) // factor, bilinear)
@@ -97,17 +110,26 @@ class UNet(nn.Module):
         self.up4 = Up(rootchan*2**(1), rootchan*2**(0), bilinear)
         self.outc = OutConv(rootchan*2**(0), n_classes)
 
-    def forward(self, x):
-        x1 = self.inc(x)
-        x2 = self.down1(x1)
-        x3 = self.down2(x2)
-        x4 = self.down3(x3)
-        x5 = self.down4(x4)
+    def forward(self, x1, x2, x3, x4, x5):
         x = self.up1(x5, x4)
         x = self.up2(x, x3)
         x = self.up3(x, x2)
         x = self.up4(x, x1)
         logits = self.outc(x)
+        return logits
+
+class UNet(nn.Module):
+    def __init__(self, n_channels, n_classes, rootchan=16, bilinear=False):
+        super(UNet, self).__init__()
+        self.n_channels = n_channels
+        self.n_classes = n_classes
+        self.bilinear = bilinear
+        self.encoder = Encoder(n_channels, n_classes, rootchan=rootchan, bilinear=bilinear)
+        self.decoder = Decoder(n_channels, n_classes, rootchan=rootchan, bilinear=bilinear)
+
+    def forward(self, x):
+        x1,x2,x3,x4,x5 = self.encoder(x)
+        logits = self.decoder(x1,x2,x3,x4,x5)
         return logits
     
 #PyTorch
@@ -150,6 +172,20 @@ class UnetTrainer(pl.LightningModule):
 
     def training_step(self, batch, batch_nb):
         x, y = batch
+        # mosaic
+        if torch.rand(1) > 0.5:
+            if torch.rand(1) > 0.5:
+                x = einops.rearrange(x, 'b c (h1 h2) (w1 w2) -> b c (w1 h2) (h1 w2)', h1=2, w1=2)
+                y = einops.rearrange(y, 'b (h1 h2) (w1 w2) -> b (w1 h2) (h1 w2)', h1=2, w1=2)
+            if torch.rand(1) > 0.5:
+                b = x.shape[0] - x.shape[0]%2
+                x = x[b//2:b]*0.8 + x[:b//2]*0.2
+                y = y[b//2:b]
+            # const to 0 mapping
+            if torch.rand(1) > 0.9:
+                x = x*0 
+                y = y*0
+        
         y_hat = self.model(x)
         xent_loss = F.cross_entropy(y_hat, y) if self.n_classes > 1 else \
                     F.binary_cross_entropy_with_logits(y_hat, y)
