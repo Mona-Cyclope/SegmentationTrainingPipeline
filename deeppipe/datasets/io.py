@@ -4,7 +4,9 @@ import cv2
 import os
 import wget
 from tqdm import tqdm
-
+import pandas
+import os
+import json
 from deeppipe import LOG
 
 def load_json(path2file):
@@ -118,5 +120,28 @@ def labeler_download_lot(json_file_path, root_dump_path=None, update_if_exists=T
     
     return image_dump_path, labels_dump_path
     
-    
-    
+def convert_csv_to_labeler(path, mask_folder_name='mask_labels'):
+    mask_save_path = os.path.join(path, mask_folder_name)
+    os.makedirs(mask_save_path, exist_ok=True)
+    annotation_csv = [ pandas.read_csv(os.path.join(path,f)) for f in os.listdir(path) if 'csv' in f ]
+    annotation_csv[0]
+    filenames = list(set().union( *[ set(csv['#filename']) for csv in annotation_csv] ))
+    annotations = {}
+    for filename in filenames:
+        annotations[filename] = {'polygonLabels':[]}
+        for csv in annotation_csv:
+            entry = csv[csv[ "#filename"] == filename ]
+            try:
+                annotation_dict = json.loads(entry["region_shape_attributes"].values[0])
+                annotation_class = json.loads(entry["region_attributes"].values[0])
+                label = annotation_class['label']
+                annotation_dict["labelValue"] = label[0].upper() + label[1:].lower()
+                annotations[filename]['polygonLabels'] += [ annotation_dict ]
+            except:
+                pass
+
+    for k, v in annotations.items():
+        fn = k.split('.png')[0]
+        json_path = os.path.join(mask_save_path, "{}.json".format(fn))
+        with open(json_path, 'w') as fp:
+            json.dump(v, fp)
