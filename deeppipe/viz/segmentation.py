@@ -1,14 +1,20 @@
-import torch
+import torch as th
 import numpy as np
 import matplotlib.pyplot as plt
 from einops import rearrange, reduce, repeat
 
+def denormalize_pixels(tensor_image):
+    min_v, max_v = th.min(tensor_image), th.max(tensor_image)
+    tensor_image = (tensor_image - min_v)/max_v
+    tensor_image = (tensor_image * 255) + 127
+    return tensor_image
+
 def batch_tensor_to_image_list(batch_tensor):
-    image_list = [ rearrange(batch_tensor[i], 'c h w -> h w c').detach().cpu().int().numpy() for i in range(batch_tensor.shape[0]) ]
+    image_list = [ rearrange(denormalize_pixels(batch_tensor[i]), 'c h w -> h w c').detach().cpu().int().numpy() for i in range(batch_tensor.shape[0]) ]
     return image_list
 
 def batch_tensor_to_mask_list(batch_tensor):
-    mask_list = [ batch_tensor[i].detach().cpu().int().numpy() for i in range(batch_tensor.shape[0]) ]
+    mask_list = [ batch_tensor[i].detach().cpu().numpy() for i in range(batch_tensor.shape[0]) ]
     return mask_list
 
 def show_images_masks(images, masks, alpha=0.3, **kwargs):

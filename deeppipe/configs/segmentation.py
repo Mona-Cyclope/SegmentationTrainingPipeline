@@ -20,7 +20,7 @@ valid_batches_json = ["20210511_seg-batch-68-2021-05-11.json", "20210511_seg-bat
                       "20210511_seg-batch-71-2021-05-11.json", "20210511_seg-batch-72-2021-05-11.json", "20210511_seg-batch-73-2021-05-11.json",
                       "20210511_seg-batch-74-2021-05-11.json",
                     ]
-label_dict = {"Road": 1 }#,"BAU":2, "SW": 3}
+label_dict = {"ROAD": 1 }#,"BAU":2, "SW": 3}
 
 # data download and buffer
 download_images = False

@@ -14,3 +14,8 @@ conda create -f train_py37_th_[8,13]_cu[10,11].yml
 You can create a dataloader strating from a json labeler file. https://labeler.cyclope.ai/
 
 
+## Get data from labeler
+
+* download the labeler "lot" file in a json format
+* 
+

@@ -18,72 +18,10 @@ def write_json(dictio, path2file):
     with open(path2file, "w") as f:
         json.dump(dictio, f)
     
-def image_load_fun(path_to_image):
+def load_image(path_to_image):
     image = cv2.imread(path_to_image)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     return image
-
-def mask_load_fun(path_to_mask):
-    with open(path_to_mask, 'r', encoding='utf-8') as f:
-        labels = json.load(f)
-    segmentation = labels["polygonLabels"]
-    return segmentation
-
-def get_mask_from_coordinates(coordinates, shape, value=1, mask=None):
-    H,W = shape
-    mask = np.zeros([H,W], dtype=np.uint8) if mask is None else mask
-    hull = np.expand_dims(np.asarray(coordinates), axis=1)
-    cv2.drawContours(mask, [hull], -1, value, -1)
-    return mask
-
-def get_coordinates(all_points_x, all_points_y):
-    coordinates = []
-    for x, y in zip(all_points_x, all_points_y):
-        coordinates.append([int(np.round(float(x))), int(np.round(float(y)))])
-    np.asarray(coordinates).astype(np.float32)
-    return coordinates
-
-def labeler_image_mask_load(maks_label_dict=None):
-    def f(image_mask_path):
-        image_path, mask_path = image_mask_path
-        image = image_load_fun(image_path)
-        segmentations = mask_load_fun(mask_path)
-        h,w,c = image.shape
-        mask = np.zeros([h,w], dtype=np.uint8)
-        for cls_idx, segmentation in enumerate(segmentations):
-            labelValue = segmentation['labelValue']
-            allX, allY = segmentation['allX'], segmentation['allY']
-            if len(allX) > 0:
-                coordinates = get_coordinates(allX, allY)
-                if maks_label_dict is not None and labelValue not in maks_label_dict:
-                    LOG.warning("found annotation label not in label dictionary: {}".format(labelValue))
-                elif maks_label_dict is not None and labelValue in maks_label_dict:
-                    get_mask_from_coordinates(coordinates, [h,w], value=maks_label_dict.get(labelValue), mask=mask)
-                elif maks_label_dict is None:
-                    get_mask_from_coordinates(coordinates, [h,w], value=cls_idx + 1, mask=mask)
-        return image, mask
-    return f
-
-def rescale_image_mask_load(dim, image_mask_load_fun):
-    def f(image_mask_path):
-        image, mask = image_mask_load_fun(image_mask_path)
-        image = cv2.resize(image, tuple(dim), interpolation=cv2.INTER_CUBIC)
-        mask = cv2.resize(mask, tuple(dim), interpolation=cv2.INTER_NEAREST)
-        return image, mask
-    return f
-
-def rescale_labeler_image_mask_load(dim, image_mask_load_fun=labeler_image_mask_load(maks_label_dict={})):
-    def f(image_mask_path):
-        image, mask = image_mask_load_fun(image_mask_path)
-        image = cv2.resize(image, tuple(dim), interpolation=cv2.INTER_CUBIC)
-        mask = cv2.resize(mask, tuple(dim), interpolation=cv2.INTER_NEAREST)
-        return image, mask
-    return f
-
-def labeler_download_lots(json_file_paths, update_if_exists=True, only_labels=False):
-    dump_paths = [ labeler_download_lot(json_file_path, update_if_exists=update_if_exists, only_labels=only_labels) for json_file_path in json_file_paths ]
-    image_paths, label_paths = list(zip(*dump_paths))
-    return image_paths, label_paths
 
 def labeler_download_lot(json_file_path, root_dump_path=None, update_if_exists=True, only_labels=False):
     """
@@ -123,13 +61,14 @@ def labeler_download_lot(json_file_path, root_dump_path=None, update_if_exists=T
 def convert_csv_to_labeler(path, mask_folder_name='mask_labels'):
     mask_save_path = os.path.join(path, mask_folder_name)
     os.makedirs(mask_save_path, exist_ok=True)
-    annotation_csv = [ pandas.read_csv(os.path.join(path,f)) for f in os.listdir(path) if 'csv' in f ]
+    annotation_csv = [ pandas.read_csv(os.path.join(path,f)) for f in os.listdir(path) if '.csv' in f ]
+    annotation_csv_fname = [ f for f in os.listdir(path) if '.csv' in f ]
     annotation_csv[0]
     filenames = list(set().union( *[ set(csv['#filename']) for csv in annotation_csv] ))
     annotations = {}
     for filename in filenames:
         annotations[filename] = {'polygonLabels':[]}
-        for csv in annotation_csv:
+        for csv, csv_fname in zip(annotation_csv, annotation_csv_fname):
             entry = csv[csv[ "#filename"] == filename ]
             try:
                 annotation_dict = json.loads(entry["region_shape_attributes"].values[0])
@@ -137,8 +76,8 @@ def convert_csv_to_labeler(path, mask_folder_name='mask_labels'):
                 label = annotation_class['label']
                 annotation_dict["labelValue"] = label[0].upper() + label[1:].lower()
                 annotations[filename]['polygonLabels'] += [ annotation_dict ]
-            except:
-                pass
+            except Exception as e:
+                LOG.warning("issue with {} in {} raised: {}".format(filename, csv_fname, e))
 
     for k, v in annotations.items():
         fn = k.split('.png')[0]
