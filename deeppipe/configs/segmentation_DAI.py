@@ -4,61 +4,94 @@ from deeppipe.datasets.datasets import ImageMaskDataset
 from deeppipe.datasets.preprocess import image_mask_resize, json2mask, convertImage2float, convertImageRgb2Hsv, normCeneterImage, convertMask2long, transposeImage, compose
 from deeppipe.datasets.io import load_image, load_json
 import albumentations as A
-from deeppipe.models.unet import UnetTrainer
+from deeppipe.models.unet import UnetHSVTrainer, UnetTrainer, UnetGRYTrainer
 from datetime import datetime
+import pandas as pd
 
-batches = { "batch_16_dirif_20191021": { 
-                "image_folder": "/raid-dgx1/allanza/Segmentation/semantic_segmentation/data/DIRIF/batch_16_dirif_20191021/images",
-                "mask_folder": "/raid-dgx1/allanza/Segmentation/semantic_segmentation/data/DIRIF/batch_16_dirif_20191021/mask_labels",
-            },
-           "batch_17_dirif_comptage": {
-               "image_folder": "/raid-dgx1/allanza/Segmentation/semantic_segmentation/data/DIRIF/batch_17_dirif_comptage/images",
-                "mask_folder": "/raid-dgx1/allanza/Segmentation/semantic_segmentation/data/DIRIF/batch_17_dirif_comptage/mask_labels",
-           },
-           "batch_18_dirif_AlarmesOctobre": {
-               "image_folder": "/raid-dgx1/allanza/Segmentation/semantic_segmentation/data/DIRIF/batch_18_dirif_AlarmesOctobre/images",
-                "mask_folder": "/raid-dgx1/allanza/Segmentation/semantic_segmentation/data/DIRIF/batch_18_dirif_AlarmesOctobre/mask_labels",
-           },
-           "TOULON_DAI/batch_1":{
-               "image_folder": "/raid-dgx1/allanza/Segmentation/semantic_segmentation/data/TOULON_DAI/batch_1/images",
-               "mask_folder": "/raid-dgx1/allanza/Segmentation/semantic_segmentation/data/TOULON_DAI/batch_1/mask_labels",
-               
-           },
-           "TOULON_DAI/batch_2":{
-               "image_folder": "/raid-dgx1/allanza/Segmentation/semantic_segmentation/data/TOULON_DAI/batch_2/images",
-               "mask_folder": "/raid-dgx1/allanza/Segmentation/semantic_segmentation/data/TOULON_DAI/batch_2/mask_labels",
-               
-           },
-           "TOULON_DAI/batch_3":{
-               "image_folder": "/raid-dgx1/allanza/Segmentation/semantic_segmentation/data/TOULON_DAI/batch_3/images",
-               "mask_folder": "/raid-dgx1/allanza/Segmentation/semantic_segmentation/data/TOULON_DAI/batch_3/mask_labels",
-               
-           },
-           "TOULON_DAI/batch_4":{
-               "image_folder": "/raid-dgx1/allanza/Segmentation/semantic_segmentation/data/TOULON_DAI/batch_4/images",
-               "mask_folder": "/raid-dgx1/allanza/Segmentation/semantic_segmentation/data/TOULON_DAI/batch_4/mask_labels",
-               
-           },
-           "TOULON_DAI/batch_5":{
-               "image_folder": "/raid-dgx1/allanza/Segmentation/semantic_segmentation/data/TOULON_DAI/batch_5/images",
-               "mask_folder": "/raid-dgx1/allanza/Segmentation/semantic_segmentation/data/TOULON_DAI/batch_5/mask_labels",
-               
-           },
-           "TOULON_DAI/batch_6":{
-               "image_folder": "/raid-dgx1/allanza/Segmentation/semantic_segmentation/data/TOULON_DAI/batch_6/images",
-               "mask_folder": "/raid-dgx1/allanza/Segmentation/semantic_segmentation/data/TOULON_DAI/batch_6/mask_labels",
-               
-           },
-           "TOULON_DAI/batch_7":{
-               "image_folder": "/raid-dgx1/allanza/Segmentation/semantic_segmentation/data/TOULON_DAI/batch_7/images",
-               "mask_folder": "/raid-dgx1/allanza/Segmentation/semantic_segmentation/data/TOULON_DAI/batch_7/mask_labels",
-           }
-}
+batches = {'20210511_seg-batch-37-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-37-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-37-2021-05-11/labels'},
+ '20210511_seg-batch-38-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-38-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-38-2021-05-11/labels'},
+ '20210511_seg-batch-39-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-39-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-39-2021-05-11/labels'},
+ '20210511_seg-batch-40-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-40-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-40-2021-05-11/labels'},
+ '20210511_seg-batch-41-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-41-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-41-2021-05-11/labels'},
+ '20210511_seg-batch-42-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-42-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-42-2021-05-11/labels'},
+ '20210511_seg-batch-43-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-43-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-43-2021-05-11/labels'},
+ '20210511_seg-batch-44-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-44-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-44-2021-05-11/labels'},
+ '20210511_seg-batch-45-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-45-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-45-2021-05-11/labels'},
+ '20210511_seg-batch-46-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-46-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-46-2021-05-11/labels'},
+ '20210511_seg-batch-47-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-47-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-47-2021-05-11/labels'},
+ '20210511_seg-batch-48-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-48-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-48-2021-05-11/labels'},
+ '20210511_seg-batch-49-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-49-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-49-2021-05-11/labels'},
+ '20210511_seg-batch-50-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-50-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-50-2021-05-11/labels'},
+ '20210511_seg-batch-51-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-51-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-51-2021-05-11/labels'},
+ '20210511_seg-batch-52-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-52-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-52-2021-05-11/labels'},
+ '20210511_seg-batch-53-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-53-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-53-2021-05-11/labels'},
+ '20210511_seg-batch-54-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-54-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-54-2021-05-11/labels'},
+ '20210511_seg-batch-55-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-55-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-55-2021-05-11/labels'},
+ '20210511_seg-batch-56-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-56-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-56-2021-05-11/labels'},
+ '20210511_seg-batch-57-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-57-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-57-2021-05-11/labels'},
+ '20210511_seg-batch-58-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-58-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-58-2021-05-11/labels'},
+ '20210511_seg-batch-59-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-59-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-59-2021-05-11/labels'},
+ '20210511_seg-batch-60-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-60-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-60-2021-05-11/labels'},
+ '20210511_seg-batch-61-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-61-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-61-2021-05-11/labels'},
+ '20210511_seg-batch-62-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-62-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-62-2021-05-11/labels'},
+ '20210511_seg-batch-63-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-63-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-63-2021-05-11/labels'},
+ '20210511_seg-batch-64-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-64-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-64-2021-05-11/labels'},
+ '20210511_seg-batch-65-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-65-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-65-2021-05-11/labels'},
+ '20210511_seg-batch-66-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-66-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-66-2021-05-11/labels'},
+ '20210511_seg-batch-68-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-68-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-68-2021-05-11/labels'},
+ '20210511_seg-batch-69-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-69-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-69-2021-05-11/labels'},
+ '20210511_seg-batch-70-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-70-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-70-2021-05-11/labels'},
+ '20210511_seg-batch-71-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-71-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-71-2021-05-11/labels'},
+ '20210511_seg-batch-72-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-72-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-72-2021-05-11/labels'},
+ '20210511_seg-batch-73-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-73-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-73-2021-05-11/labels'},
+ '20210511_seg-batch-74-2021-05-11': {'image_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-74-2021-05-11/images',
+                                      'mask_folder': '/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/20210511_seg-batch-74-2021-05-11/labels'}
+ }
 
-label_dict = {"Road":1, "Bau":2, "Sw":3}
+camera_codes_paths = [ "/raid-dgx3/mviti/gits/SegmentationTrainingPipeline/data/Toulon/camera_codes.csv" ]
+
+label_dict = {"Road":1, "Bau":2, "Sw":3, "Parking": 4}
+train_valid_split = [0.9,0.1]
+split_strategy = "by_camera_code" 
 resize_image_size = [400,400]
 image_mask_preproc_fun = compose([ json2mask(label_dict), image_mask_resize(resize_image_size), convertMask2long,
-                                  convertImageRgb2Hsv, convertImage2float, normCeneterImage(0,255),transposeImage])
+                                   convertImage2float, normCeneterImage(0,255),transposeImage])
 image_load_fun = load_image
 mask_load_fun = load_json
 image_prefix = ""
@@ -82,7 +115,7 @@ valid_batch_size = 16
 # sanity check for data label dictionary
 n_classes = len(list(label_dict.keys())) + 1
 assert n_classes == max(list(label_dict.values())) + 1
-channels_image = 3
+channels_image = 1
 
 # https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html
 fig_params = {"figsize": (12,12), "dpi":72, "sharex":True, "sharey":True, "alpha":0.5}
@@ -111,9 +144,9 @@ train_albumentation = A.Compose([
     ], p=0.1)    
     ])
 
-model = UnetTrainer(channels_image,n_classes)
+model = UnetGRYTrainer(channels_image,n_classes)
 model.set_figure_params(fig_params)
 # convert to string
-logging_folder = "/home/mviti/gits/SegmentationTrainingPipeline/log/DAI_DIRIF"
-model_name = "Unet_{}".format(datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
+logging_folder = "/home/mviti/gits/SegmentationTrainingPipeline/log/DAI_TOULON"
+model_name = "UnetGRY_{}".format(datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
 

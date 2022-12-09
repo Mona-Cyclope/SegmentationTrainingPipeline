@@ -22,6 +22,7 @@ valid_batch_size = segmentation_config.valid_batch_size
 train_albumentation = segmentation_config.train_albumentation
 
 # training config
+train_valid_split = segmentation_config.train_valid_split
 logging_folder = segmentation_config.logging_folder
 max_epochs = segmentation_config.max_epochs
 accelerator = segmentation_config.accelerator
@@ -32,6 +33,8 @@ model = segmentation_config.model
 model_name = segmentation_config.model_name
 
 # data sets
+
+# training validation splitting
 batches_dataset = []
 for batch_id, batch in batches.items():
     image_folder, mask_folder = batch['image_folder'], batch['mask_folder']
@@ -40,7 +43,7 @@ for batch_id, batch in batches.items():
                                         image_prefix=image_prefix, mask_prefix=mask_prefix, image_suffix=image_suffix, mask_suffix=mask_suffix
                                         ) ]
 dataset = ConcatDataset(batches_dataset)
-train_dataset, valid_dataset = random_split(dataset, [0.9,0.1], generator=th.Generator().manual_seed(42))
+train_dataset, valid_dataset = random_split(dataset, train_valid_split, generator=th.Generator().manual_seed(42))
 train_dataset.dataset.transform = ApplyAlbumination(train_albumentation)
 
 # data loaders

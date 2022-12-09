@@ -8,7 +8,7 @@ from deeppipe.models.trainer import SegmenTrainer
 from deeppipe.viz.segmentation import show_images_masks, batch_tensor_to_image_list, batch_tensor_to_mask_list
 import matplotlib as plt
 import einops
-
+from deeppipe.datasets.preprocess import rgb2hsv_torch
 
 class DoubleConv(nn.Module):
     """(convolution => [BN] => ReLU) * 2"""
@@ -134,6 +134,24 @@ class UNet(nn.Module):
         logits = self.decoder(x1,x2,x3,x4,x5)
         return logits
     
+class UnetHSV(UNet):
+    
+    def __init__(self, *args, **kwargs ):
+        super().__init__(*args, **kwargs)
+        
+    def forward(self,x):
+        x = rgb2hsv_torch(x)
+        return super().forward(x)
+    
+class UnetGRY(UNet):
+    
+    def __init__(self, *args, **kwargs ):
+        super().__init__(*args, **kwargs)
+        
+    def forward(self,x):
+        x = torch.mean(x, 1, keepdim=True)
+        return super().forward(x)
+    
 #PyTorch
 
 class UnetTrainer(SegmenTrainer):
@@ -141,4 +159,18 @@ class UnetTrainer(SegmenTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.model = UNet(*args, **kwargs)#.cuda()
+        self.n_classes = self.model.n_classes 
+        
+class UnetHSVTrainer(SegmenTrainer):
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.model = UnetHSV(*args, **kwargs)#.cuda()
+        self.n_classes = self.model.n_classes 
+        
+class UnetGRYTrainer(SegmenTrainer):
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.model = UnetGRY(*args, **kwargs)#.cuda()
         self.n_classes = self.model.n_classes 

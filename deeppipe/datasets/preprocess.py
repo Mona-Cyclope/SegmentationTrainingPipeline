@@ -81,6 +81,8 @@ def json2mask(mask_label_dict={}):
         return image, mask
     return f
 
+import torch
+
 def rgb2hsl_torch(rgb: torch.Tensor) -> torch.Tensor:
     cmax, cmax_idx = torch.max(rgb, dim=1, keepdim=True)
     cmin = torch.min(rgb, dim=1, keepdim=True)[0]

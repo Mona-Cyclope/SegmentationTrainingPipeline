@@ -5,31 +5,14 @@ from tqdm import tqdm
 from deeppipe import LOG
 import cv2
 
-class ImageMaskDataset(Dataset):
+class ImageMaskPathsDataset(Dataset):
     
-    @staticmethod
-    def filter_file_names(folder, prefix, suffix):
-        image_names = [ os.path.basename(f)[len(prefix):-len(suffix)] for f in os.listdir(folder) if prefix in f and suffix in f ]
-        return image_names
-    
-    def __init__(self, image_folder, mask_folder, image_load_fun, mask_load_fun,
-                 image_mask_transform=None, image_mask_preproc_fun=None, 
-                 image_prefix="", mask_prefix="", image_suffix=".png", mask_suffix=".json"
-                 ):
+    def __init__(self, valid_image_file_paths, valid_mask_file_paths, image_load_fun, mask_load_fun,
+                 image_mask_transform=None, image_mask_preproc_fun=None ):
         
-        image_names = set(ImageMaskDataset.filter_file_names(image_folder, prefix=image_prefix, suffix=image_suffix))
-        mask_names = set(ImageMaskDataset.filter_file_names(mask_folder, prefix=mask_prefix, suffix=mask_suffix))
-        valid_file_names = list(image_names.intersection(mask_names))   
-
-        valid_image_file_names = [ image_prefix+f+image_suffix for f in valid_file_names ]
-        valid_mask_file_names = [ mask_prefix+f+mask_suffix for f in valid_file_names ]
-        
-        valid_image_file_paths = [ os.path.join(image_folder, f) for f in valid_image_file_names ]
-        valid_mask_file_paths = [ os.path.join(mask_folder, f) for f in valid_mask_file_names ]
-        
-        self.buffer_data = [ (image_load_fun(image_path), mask_load_fun(mask_path)) for (image_path, mask_path) in zip(valid_image_file_paths, valid_mask_file_paths) ]
+        self.buffer_data = [ (image_load_fun(image_path), mask_load_fun(mask_path)) for (image_path, mask_path) in tqdm(zip(valid_image_file_paths, valid_mask_file_paths), desc='load in buffer') ]
         if image_mask_preproc_fun is not None:
-            for idx in range(len(self.buffer_data)):
+            for idx in tqdm(range(len(self.buffer_data)), desc='preprocessing'):
                 image, mask = self.buffer_data[idx]
                 self.buffer_data[idx] = image_mask_preproc_fun(image=image, mask=mask)
 
@@ -42,6 +25,45 @@ class ImageMaskDataset(Dataset):
         image, mask = self.buffer_data[index]
         if self.transform: image, mask = self.transform(image=image, mask=mask)
         return image, mask
+    
+class ImageMaskDataset(ImageMaskPathsDataset):
+    
+    @staticmethod
+    def filter_file_names(folder, prefix, anyfix, suffix):
+        image_names = [ os.path.basename(f)[len(prefix):-len(suffix)] for f in os.listdir(folder) if prefix in f and suffix in f and anyfix in f ]
+        return image_names
+    
+    def __init__(self, image_folder, mask_folder, image_load_fun, mask_load_fun,
+                 image_mask_transform=None, image_mask_preproc_fun=None, 
+                 image_prefix="", frame_code="", mask_prefix="", image_suffix=".png", mask_suffix=".json"
+                 ):
+        """
+        prefix,frame_code,suffix: 
+            ..../mask/mask_000_1.json, .../image/image_000_1.png -> image_name = _1, frame_code=000, image_prefix='image', mask_prefix='mask' image_suffix='.png' ...
+        
+        """
+        if not isinstance(image_folder, list): image_folder = [image_folder]
+        if not isinstance(mask_folder, list): mask_folder = [mask_folder]
+            
+        image_folders = image_folder
+        mask_folders = mask_folder
+        
+        valid_image_file_paths = []
+        valid_mask_file_paths = []
+        
+        for image_folder, mask_folder in zip(image_folders, mask_folders):
+            image_names = set(ImageMaskDataset.filter_file_names(image_folder, prefix=image_prefix, anyfix=frame_code, suffix=image_suffix))
+            mask_names = set(ImageMaskDataset.filter_file_names(mask_folder, prefix=mask_prefix, anyfix=frame_code, suffix=mask_suffix))
+            valid_file_names = list(image_names.intersection(mask_names))   
+
+            valid_image_file_names = [ image_prefix+f+image_suffix for f in valid_file_names ]
+            valid_mask_file_names = [ mask_prefix+f+mask_suffix for f in valid_file_names ]
+            
+            valid_image_file_paths += [ os.path.join(image_folder, f) for f in valid_image_file_names ]
+            valid_mask_file_paths += [ os.path.join(mask_folder, f) for f in valid_mask_file_names ]
+        
+        super().__init__(valid_image_file_paths, valid_mask_file_paths, image_load_fun, mask_load_fun,
+                         image_mask_transform=image_mask_transform, image_mask_preproc_fun=image_mask_preproc_fun)
     
 class KittiDataset(ImageMaskDataset):
     

@@ -3,10 +3,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from einops import rearrange, reduce, repeat
 
-def denormalize_pixels(tensor_image):
-    min_v, max_v = th.min(tensor_image), th.max(tensor_image)
-    tensor_image = (tensor_image - min_v)/max_v
-    tensor_image = (tensor_image * 255) + 127
+def denormalize_pixels(tensor_image, mean=0, var=1):
+    tensor_image = ( tensor_image - mean )/var
+    tensor_image = (tensor_image * 255) + 0
     return tensor_image
 
 def batch_tensor_to_image_list(batch_tensor):
