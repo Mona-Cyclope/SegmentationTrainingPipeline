@@ -4,14 +4,23 @@ import torch.nn.functional as F
 from torch import nn
 from torch.nn import BatchNorm2d as bn
 
+configs = { 
+    "ASPPMOBILE" : {
+        'dropout0': 0.1,
+        'dropout1': 0.1,
+        'd_feature0': 128,
+        'd_feature1': 64,
+    }
+}
 
 class MobileNetDenseASPP(nn.Module):
     """
     * output_scale can only set as 8 or 16
     """
 
-    def __init__(self, model_cfg, n_class=19, output_stride=8):
+    def __init__(self, config="ASPPMOBILE", n_class=19, output_stride=8):
         super(MobileNetDenseASPP, self).__init__()
+        model_cfg = configs[config]
         dropout0 = model_cfg['dropout0']
         dropout1 = model_cfg['dropout1']
         d_feature0 = model_cfg['d_feature0']

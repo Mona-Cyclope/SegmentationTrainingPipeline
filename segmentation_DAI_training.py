@@ -1,3 +1,6 @@
+from pytorch_lightning import seed_everything
+seed_everything(42, workers=True)
+
 from torch.utils.data import ConcatDataset, DataLoader, random_split
 import torch as th
 from deeppipe.configs import segmentation_DAI as segmentation_config
@@ -7,6 +10,8 @@ import os
 from pytorch_lightning.loggers import TensorBoardLogger
 from deeppipe.datasets.augmentations import ApplyAlbumination
 from deeppipe.datasets.datasets import ImageMaskDataset
+
+from pytorch_lightning.utilities.model_summary import ModelSummary
 
 # dataloader config
 batches = segmentation_config.batches
@@ -20,6 +25,7 @@ mask_suffix= segmentation_config.mask_suffix
 train_batch_size = segmentation_config.train_batch_size
 valid_batch_size = segmentation_config.valid_batch_size
 train_albumentation = segmentation_config.train_albumentation
+precision = segmentation_config.precision
 
 # training config
 train_valid_split = segmentation_config.train_valid_split
@@ -31,6 +37,10 @@ check_val_every_n_epoch = segmentation_config.check_val_every_n_epoch
 log_every_n_steps = segmentation_config.log_every_n_steps
 model = segmentation_config.model
 model_name = segmentation_config.model_name
+
+print(model_name)
+print(ModelSummary(model))
+
 
 # data sets
 
@@ -47,10 +57,10 @@ train_dataset, valid_dataset = random_split(dataset, train_valid_split, generato
 train_dataset.dataset.transform = ApplyAlbumination(train_albumentation)
 
 # data loaders
-train_dataloader = DataLoader(train_dataset, batch_size=train_batch_size, shuffle=True, num_workers=4)
-valid_dataloader = DataLoader(valid_dataset, batch_size=valid_batch_size, shuffle=False)
+train_dataloader = DataLoader(train_dataset, batch_size=train_batch_size, shuffle=True, num_workers=6, pin_memory=True)
+valid_dataloader = DataLoader(valid_dataset, batch_size=valid_batch_size, shuffle=False, pin_memory=True)
 
 # trainer
 logger = TensorBoardLogger(logging_folder, name=model_name)
-trainer = Trainer( max_epochs=max_epochs, accelerator=accelerator, devices=devices, logger=logger, check_val_every_n_epoch=check_val_every_n_epoch, log_every_n_steps=log_every_n_steps)
+trainer = Trainer(precision=precision, max_epochs=max_epochs, accelerator=accelerator, devices=devices, logger=logger, check_val_every_n_epoch=check_val_every_n_epoch, log_every_n_steps=log_every_n_steps)
 trainer.fit(model=model, train_dataloaders=train_dataloader, val_dataloaders=valid_dataloader)

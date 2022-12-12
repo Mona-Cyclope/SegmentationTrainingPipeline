@@ -4,13 +4,75 @@ import torch.nn.functional as F
 from torch import nn
 from collections import OrderedDict
 from torch.nn import BatchNorm2d as bn
+from deeppipe.models.trainer import SegmenTrainer
+
+configs = { 
+    "ASPP121" : {
+        'bn_size': 4,
+        'drop_rate': 0,
+        'growth_rate': 32,
+        'num_init_features': 64,
+        'block_config': (6, 12, 24, 16),
+
+        'dropout0': 0.1,
+        'dropout1': 0.1,
+        'd_feature0': 128,
+        'd_feature1': 64,
+    },
+    "ASPP161" : {
+        'bn_size': 4,
+        'drop_rate': 0,
+        'growth_rate': 48,
+        'num_init_features': 96,
+        'block_config': (6, 12, 36, 24),
+
+        'dropout0': 0.1,
+        'dropout1': 0.1,
+        'd_feature0': 512,
+        'd_feature1': 128,
+    },
+
+    "ASPP169" : {
+        'bn_size': 4,
+        'drop_rate': 0,
+        'growth_rate': 32,
+        'num_init_features': 64,
+        'block_config': (6, 12, 32, 32),
+
+        'dropout0': 0.1,
+        'dropout1': 0.1,
+        'd_feature0': 336,
+        'd_feature1': 168,
+
+    },
+    "ASPP201" : {
+        'bn_size': 4,
+        'drop_rate': 0,
+        'growth_rate': 32,
+        'num_init_features': 64,
+        'block_config': (6, 12, 48, 32),
+
+        'dropout0': 0.1,
+        'dropout1': 0.1,
+        'd_feature0': 480,
+        'd_feature1': 240,
+    },
+    "ASPPMOBILE" : {
+        'dropout0': 0.1,
+        'dropout1': 0.1,
+        'd_feature0': 128,
+        'd_feature1': 64,
+    }
+}
 
 class DenseASPP(nn.Module):
     """
     * output_scale can only set as 8 or 16
     """
-    def __init__(self, model_cfg, n_class=19, output_stride=8):
+    def __init__(self, input_channels, n_classes, config='ASPP161', output_stride=8):
         super(DenseASPP, self).__init__()
+        self.n_classes = n_classes
+        model_cfg = configs[config]
         bn_size = model_cfg['bn_size']
         drop_rate = model_cfg['drop_rate']
         growth_rate = model_cfg['growth_rate']
@@ -26,7 +88,7 @@ class DenseASPP(nn.Module):
 
         # First convolution
         self.features = nn.Sequential(OrderedDict([
-            ('conv0', nn.Conv2d(3, num_init_features, kernel_size=7, stride=2, padding=3, bias=False)),
+            ('conv0', nn.Conv2d(input_channels, num_init_features, kernel_size=7, stride=2, padding=3, bias=False)),
             ('norm0', bn(num_init_features)),
             ('relu0', nn.ReLU(inplace=True)),
             ('pool0', nn.MaxPool2d(kernel_size=3, stride=2, padding=1)),
@@ -97,7 +159,7 @@ class DenseASPP(nn.Module):
 
         self.classification = nn.Sequential(
             nn.Dropout2d(p=dropout1),
-            nn.Conv2d(in_channels=num_features, out_channels=n_class, kernel_size=1, padding=0),
+            nn.Conv2d(in_channels=num_features, out_channels=n_classes, kernel_size=1, padding=0),
             nn.Upsample(scale_factor=8, mode='bilinear'),
         )
 
@@ -138,14 +200,14 @@ class _DenseAsppBlock(nn.Sequential):
     def __init__(self, input_num, num1, num2, dilation_rate, drop_out, bn_start=True):
         super(_DenseAsppBlock, self).__init__()
         if bn_start:
-            self.add_module('norm.1', bn(input_num, momentum=0.0003)),
+            self.add_module('norm_1', bn(input_num, momentum=0.0003)),
 
-        self.add_module('relu.1', nn.ReLU(inplace=True)),
-        self.add_module('conv.1', nn.Conv2d(in_channels=input_num, out_channels=num1, kernel_size=1)),
+        self.add_module('relu_1', nn.ReLU(inplace=True)),
+        self.add_module('conv_1', nn.Conv2d(in_channels=input_num, out_channels=num1, kernel_size=1)),
 
-        self.add_module('norm.2', bn(num1, momentum=0.0003)),
-        self.add_module('relu.2', nn.ReLU(inplace=True)),
-        self.add_module('conv.2', nn.Conv2d(in_channels=num1, out_channels=num2, kernel_size=3,
+        self.add_module('norm_2', bn(num1, momentum=0.0003)),
+        self.add_module('relu_2', nn.ReLU(inplace=True)),
+        self.add_module('conv_2', nn.Conv2d(in_channels=num1, out_channels=num2, kernel_size=3,
                                             dilation=dilation_rate, padding=dilation_rate)),
 
         self.drop_rate = drop_out
@@ -162,13 +224,13 @@ class _DenseAsppBlock(nn.Sequential):
 class _DenseLayer(nn.Sequential):
     def __init__(self, num_input_features, growth_rate, bn_size, drop_rate, dilation_rate=1):
         super(_DenseLayer, self).__init__()
-        self.add_module('norm.1', bn(num_input_features)),
-        self.add_module('relu.1', nn.ReLU(inplace=True)),
-        self.add_module('conv.1', nn.Conv2d(num_input_features, bn_size *
+        self.add_module('norm_1', bn(num_input_features)),
+        self.add_module('relu_1', nn.ReLU(inplace=True)),
+        self.add_module('conv_1', nn.Conv2d(num_input_features, bn_size *
                         growth_rate, kernel_size=1, stride=1, bias=False)),
-        self.add_module('norm.2', bn(bn_size * growth_rate)),
-        self.add_module('relu.2', nn.ReLU(inplace=True)),
-        self.add_module('conv.2', nn.Conv2d(bn_size * growth_rate, growth_rate,
+        self.add_module('norm_2', bn(bn_size * growth_rate)),
+        self.add_module('relu_2', nn.ReLU(inplace=True)),
+        self.add_module('conv_2', nn.Conv2d(bn_size * growth_rate, growth_rate,
                         kernel_size=3, stride=1, dilation=dilation_rate, padding=dilation_rate, bias=False)),
         self.drop_rate = drop_rate
 
@@ -196,3 +258,22 @@ class _Transition(nn.Sequential):
         self.add_module('conv', nn.Conv2d(num_input_features, num_output_features, kernel_size=1, stride=1, bias=False))
         if stride == 2:
             self.add_module('pool', nn.AvgPool2d(kernel_size=2, stride=stride))
+
+
+class DenseASPPGRY(DenseASPP):
+    
+    def __init__(self, *args, **kwargs ):
+        super().__init__(*args, **kwargs)
+        
+    def forward(self,x):
+        x = torch.mean(x, 1, keepdim=True)
+        return super().forward(x)
+
+class DenseASPPGRYTrainer(SegmenTrainer):
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.model = DenseASPPGRY(*args, **kwargs)
+        self.n_classes = self.model.n_classes 
+    
+    

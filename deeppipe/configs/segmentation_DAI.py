@@ -5,6 +5,7 @@ from deeppipe.datasets.preprocess import image_mask_resize, json2mask, convertIm
 from deeppipe.datasets.io import load_image, load_json
 import albumentations as A
 from deeppipe.models.unet import UnetHSVTrainer, UnetTrainer, UnetGRYTrainer
+from deeppipe.models.denseaspp import DenseASPPGRYTrainer
 from datetime import datetime
 import pandas as pd
 
@@ -101,6 +102,7 @@ mask_suffix=".json"
 
 train_batch_size = 8
 valid_batch_size = 8
+precision = 32
 
 logging_folder = "log"
 
@@ -118,7 +120,7 @@ assert n_classes == max(list(label_dict.values())) + 1
 channels_image = 1
 
 # https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.figure.html
-fig_params = {"figsize": (12,12), "dpi":72, "sharex":True, "sharey":True, "alpha":0.5}
+fig_params = {"figsize": (12,12), "dpi":90, "sharex":True, "sharey":True, "alpha":0.5}
 
 # data augmentation
 train_albumentation = A.Compose([
@@ -144,9 +146,12 @@ train_albumentation = A.Compose([
     ], p=0.1)    
     ])
 
-model = UnetGRYTrainer(channels_image,n_classes)
-model.set_figure_params(fig_params)
-# convert to string
-logging_folder = "/home/mviti/gits/SegmentationTrainingPipeline/log/DAI_TOULON"
-model_name = "UnetGRY_{}".format(datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
 
+model = DenseASPPGRYTrainer(channels_image,n_classes, config='ASPP121')
+model.set_figure_params(fig_params)
+logging_folder = "/home/mviti/gits/SegmentationTrainingPipeline/log/DAI_TOULON"
+model_name = "DenseASPPGRY_{}".format(datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
+#model = UnetGRYTrainer(channels_image,n_classes)
+#model.set_figure_params(fig_params)
+#logging_folder = "/home/mviti/gits/SegmentationTrainingPipeline/log/DAI_TOULON"
+#model_name = "UnetGRY_{}".format(datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
