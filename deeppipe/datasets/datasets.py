@@ -54,7 +54,7 @@ class ImageMaskDataset(ImageMaskPathsDataset):
         for image_folder, mask_folder in zip(image_folders, mask_folders):
             image_names = set(ImageMaskDataset.filter_file_names(image_folder, prefix=image_prefix, anyfix=frame_code, suffix=image_suffix))
             mask_names = set(ImageMaskDataset.filter_file_names(mask_folder, prefix=mask_prefix, anyfix=frame_code, suffix=mask_suffix))
-            valid_file_names = list(image_names.intersection(mask_names))   
+            valid_file_names = list(sorted(list(image_names.intersection(mask_names))))   
 
             valid_image_file_names = [ image_prefix+f+image_suffix for f in valid_file_names ]
             valid_mask_file_names = [ mask_prefix+f+mask_suffix for f in valid_file_names ]
