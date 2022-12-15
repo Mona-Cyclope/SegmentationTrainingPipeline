@@ -46,15 +46,16 @@ class SegmenTrainer(pl.LightningModule):
         x, y = batch
         # mosaic
         if th.rand(1) > 0.5:
-            if th.rand(1) > 0.5:
+            v = th.rand(1)
+            if 0.6 < v < 1.0:
                 x = einops.rearrange(x, 'b c (h1 h2) (w1 w2) -> b c (w1 h2) (h1 w2)', h1=2, w1=2)
                 y = einops.rearrange(y, 'b (h1 h2) (w1 w2) -> b (w1 h2) (h1 w2)', h1=2, w1=2)
-            if th.rand(1) > 0.5:
+            if  0.2 < v < 0.6:
                 b = x.shape[0] - x.shape[0]%2
                 x = x[b//2:b]*0.8 + x[:b//2]*0.2
                 y = y[b//2:b]
             # const to 0 mapping
-            if th.rand(1) > 0.9:
+            if 0.0 < v < 0.2:
                 x = x*0 
                 y = y*0
         
@@ -115,4 +116,7 @@ class SegmenTrainer(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = optim.Adam(self.parameters(), lr=1e-3)
-        return optimizer
+        sch = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=10, eta_min=0)
+        return {
+            "optimizer":optimizer,
+            "lr_scheduler" : sch }

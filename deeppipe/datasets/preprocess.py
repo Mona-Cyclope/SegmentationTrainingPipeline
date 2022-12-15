@@ -9,6 +9,8 @@ import os
 import json
 from deeppipe import LOG
 import torch
+import torch as th
+import torchvision.transforms as transforms
 
 def compose(pps):
     def apply(image=None, mask=None):
@@ -27,11 +29,23 @@ def convertImageRgb2Hsv(image=None, mask=None): return cv2.cvtColor(image, cv2.C
 
 def convertImageRgb2Gry(image=None, mask=None): return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY), mask
 
+def Numpy2Tensor():
+    def f(image=None, mask=None):
+        return torch.from_numpy(image), torch.from_numpy(mask)
+    return f
+
 def normCeneterImage(mean, var):
     def f(image=None, mask=None, mean=mean, var=var): 
         return (image-mean)/var, mask
     return f
 
+def preprocVGG():
+    pp = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                              std=[0.229, 0.224, 0.225])
+    def f(image=None, mask=None, pp=pp):
+        image = pp(image)
+        return image, mask
+    return f
 
 def image_mask_resize(dim):
     def f(image=None, mask=None):

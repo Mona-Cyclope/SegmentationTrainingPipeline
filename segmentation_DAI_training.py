@@ -28,6 +28,7 @@ train_albumentation = segmentation_config.train_albumentation
 precision = segmentation_config.precision
 
 # training config
+chosen_model = "TransUnetGRY"
 train_valid_split = segmentation_config.train_valid_split
 logging_folder = segmentation_config.logging_folder
 max_epochs = segmentation_config.max_epochs
@@ -35,12 +36,8 @@ accelerator = segmentation_config.accelerator
 devices = segmentation_config.devices
 check_val_every_n_epoch = segmentation_config.check_val_every_n_epoch
 log_every_n_steps = segmentation_config.log_every_n_steps
-model = segmentation_config.model
-model_name = segmentation_config.model_name
-
-print(model_name)
-print(ModelSummary(model))
-
+model = segmentation_config.models[chosen_model]['model']
+model_name = segmentation_config.models[chosen_model]['model_name']
 
 # data sets
 
@@ -59,6 +56,9 @@ train_dataset.dataset.transform = ApplyAlbumination(train_albumentation)
 # data loaders
 train_dataloader = DataLoader(train_dataset, batch_size=train_batch_size, shuffle=True, num_workers=6, pin_memory=True)
 valid_dataloader = DataLoader(valid_dataset, batch_size=valid_batch_size, shuffle=False, pin_memory=True)
+
+from deeppipe import LOG
+LOG.info(ModelSummary(model))
 
 # trainer
 logger = TensorBoardLogger(logging_folder, name=model_name)

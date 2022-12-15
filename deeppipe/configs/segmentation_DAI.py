@@ -6,6 +6,8 @@ from deeppipe.datasets.io import load_image, load_json
 import albumentations as A
 from deeppipe.models.unet import UnetHSVTrainer, UnetTrainer, UnetGRYTrainer
 from deeppipe.models.denseaspp import DenseASPPGRYTrainer
+from deeppipe.models.transunet import TransUNetGRYTrainer
+
 from datetime import datetime
 import pandas as pd
 
@@ -132,7 +134,7 @@ train_albumentation = A.Compose([
         A.GridDistortion(p=1.0),
         A.OpticalDistortion(distort_limit=2, shift_limit=0.5, p=1.0)                  
         ], p=0.5 ),
-    A.RandomBrightnessContrast(p=0.25),    
+    A.RandomBrightnessContrast(p=0.25),
     A.RandomGamma(p=0.25),
     A.Solarize (threshold=128, always_apply=False, p=0.25),
     A.OneOf([
@@ -141,17 +143,20 @@ train_albumentation = A.Compose([
                      blur_value=7, brightness_coefficient=0.7, rain_type=None, always_apply=False, p=1.0),
         A.RandomShadow (shadow_roi=(0, 0.5, 1, 1), num_shadows_lower=1, num_shadows_upper=2, shadow_dimension=5, always_apply=False, p=1.0),
         A.RandomSnow(snow_point_lower=0.1, snow_point_upper=0.3, brightness_coeff=2.5, always_apply=False, p=1.0),
-        A.RandomSunFlare (flare_roi=(0, 0, 1, 0.5), angle_lower=0, angle_upper=1, num_flare_circles_lower=6, 
+        A.RandomSunFlare(flare_roi=(0, 0, 1, 0.5), angle_lower=0, angle_upper=1, num_flare_circles_lower=6, 
                          num_flare_circles_upper=10, src_radius=400, src_color=(255, 255, 255), always_apply=False, p=1.0) 
     ], p=0.1)    
     ])
 
-
-model = DenseASPPGRYTrainer(channels_image,n_classes, config='ASPP121')
-model.set_figure_params(fig_params)
-logging_folder = "/home/mviti/gits/SegmentationTrainingPipeline/log/DAI_TOULON"
-model_name = "DenseASPPGRY_{}".format(datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
-#model = UnetGRYTrainer(channels_image,n_classes)
-#model.set_figure_params(fig_params)
-#logging_folder = "/home/mviti/gits/SegmentationTrainingPipeline/log/DAI_TOULON"
-#model_name = "UnetGRY_{}".format(datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
+models = { 
+          "ASPP121GRY":
+          { "model" : DenseASPPGRYTrainer(channels_image, n_classes, config='ASPP121'),
+           "model_name" : "DenseASPPGRY_{}".format(datetime.now().strftime("%Y-%m-%d_%H:%M:%S")) },
+          "TransUnetGRY":
+          { "model" : TransUNetGRYTrainer(channels_image, n_classes, resize_image_size[0]),
+           "model_name" : "TransUnetGRY_{}".format(datetime.now().strftime("%Y-%m-%d_%H:%M:%S")) },
+          "UnetGRY":
+          { "model" : UnetGRYTrainer(channels_image, n_classes),
+           "model_name" : "UnetGRY_{}".format(datetime.now().strftime("%Y-%m-%d_%H:%M:%S")) }
+          }
+for k,v in models.items(): v['model'].set_figure_params(fig_params)
